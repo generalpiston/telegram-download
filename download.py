@@ -1,6 +1,7 @@
 import asyncio
 import configparser
 import os
+import time
 from telethon import TelegramClient
 
 CONFIG_INI = 'telegram-download.ini'
@@ -13,6 +14,7 @@ class TelegramDownload(object):
     self.output = output
     self.delete_on_download = delete_on_download
     self.client = TelegramClient('download', self.api_id, self.api_hash)
+    self.client.flood_sleep_threshold = 10
     self.client.start()
 
   def find_photos(self):
@@ -26,19 +28,23 @@ class TelegramDownload(object):
 
     return messages
 
-  def download_photos(self, messages=[]):
+  def download_photos(self, messages=[], batch_size=25, wait=3):
     print('Downloading photos to {}'.format(self.output))
 
     if not os.path.isdir(self.output):
       os.mkdir(self.output)
 
     loop = asyncio.get_event_loop()
-    tasks = []
 
-    for message in messages:
-      tasks.append(message.download_media(self.output))
+    for i in range(0,int(len(messages)/batch_size)):
+      tasks = []
 
-    loop.run_until_complete(asyncio.gather(*tasks))
+      for message in messages[i*batch_size:(i+1)*batch_size]:
+        tasks.append(message.download_media(self.output))
+
+      loop.run_until_complete(asyncio.gather(*tasks))
+
+      time.sleep(3)
 
   def execute(self):
     messages = self.find_photos()
